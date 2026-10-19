@@ -1,0 +1,311 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Albany Housing Bill Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a legislative ledger — summary roster of the nine senators on top, filters, then one dense row per bill grouped by subject. */
+:root {
+  --bg: #f6f7f5;
+  --surface: #ffffff;
+  --ink: #18242a;
+  --muted: #5b6970;
+  --rule: #d9dfdd;
+  --accent: #1f5f73;
+  --accent-soft: #e2eef1;
+  --mark: #ffe58a;
+  --mark-ink: #3a2c00;
+  --good: #2e7d4f;
+  --font-display: "Literata", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11181b; --surface: #182226; --ink: #e4ebec; --muted: #9aa9ae; --rule: #2a383d;
+  --accent: #7cc0d3; --accent-soft: #1d3138; --mark: #6b5a12; --mark-ink: #fff3c4; --good: #6fcf97; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11181b; --surface: #182226; --ink: #e4ebec; --muted: #9aa9ae; --rule: #2a383d;
+  --accent: #7cc0d3; --accent-soft: #1d3138; --mark: #6b5a12; --mark-ink: #fff3c4; --good: #6fcf97; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 28px; }
+h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(1.7rem, 3.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.25rem; margin: 0; }
+.lede { color: var(--muted); max-width: 70ch; margin: 8px 0 0; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+
+.roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.sen { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; text-align: left; font: inherit; color: inherit; cursor: pointer; display: grid; gap: 4px; }
+.sen:hover { border-color: var(--accent); }
+.sen[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.sen:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sen .nm { font-weight: 600; }
+.sen .ds { font-size: 12.5px; color: var(--muted); }
+.sen .ct { font-size: 13px; font-variant-numeric: tabular-nums; }
+.sen .ct b { font-weight: 600; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.controls input[type=search], .controls select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.controls input[type=search] { flex: 1 1 240px; min-width: 0; }
+.controls label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+.count { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.clear { font: inherit; font-size: 14px; background: none; border: 0; color: var(--accent); cursor: pointer; text-decoration: underline; padding: 4px; }
+
+section.cat { display: grid; gap: 0; }
+section.cat > h2 { padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.bill { display: grid; grid-template-columns: 92px minmax(0, 1fr) minmax(0, 280px); gap: 6px 20px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.bill.hit .id { background: var(--mark); color: var(--mark-ink); }
+.id { font-family: var(--font-mono); font-size: 14px; align-self: start; padding: 2px 6px; border-radius: 4px; justify-self: start; }
+.id a { color: inherit; text-decoration: none; }
+.id a:hover { text-decoration: underline; }
+.desc { margin: 0; max-width: 72ch; }
+.meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
+.pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.pill.passed { border-color: var(--good); color: var(--good); }
+.people { font-size: 13.5px; display: grid; gap: 4px; }
+.people .lbl { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.people .sp { font-weight: 600; }
+mark { background: var(--mark); color: var(--mark-ink); padding: 0 3px; border-radius: 3px; font-weight: 600; }
+.note { font-size: 12.5px; color: var(--muted); font-style: italic; }
+.none { color: var(--muted); }
+.empty { padding: 24px 0; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); display: grid; gap: 8px; max-width: 80ch; }
+footer a { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .bill { grid-template-columns: 1fr; }
+  .people { padding-top: 4px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">NY Legislature · 2025–26 session · active Senate bills</div>
+    <h1>Housing, zoning and land-use bills in Albany</h1>
+    <p class="lede">Bills still alive as of October 19, 2026, with the primary sponsor and cosponsors from each bill's NY Senate page. Highlighted names are the nine senators you're tracking. Tap a senator to show only the bills they're on.</p>
+  </header>
+
+  <div>
+    <div class="roster" id="roster"></div>
+  </div>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search bill number, topic or senator" aria-label="Search bills">
+    <select id="cat" aria-label="Filter by subject"></select>
+    <label><input type="checkbox" id="onlyhits"> Only bills with a tracked senator</label>
+    <button class="clear" id="clear" type="button">Reset</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div id="list" style="display:grid;gap:32px"></div>
+
+  <footer>
+    <div><strong>Scope.</strong> Senate bills (S-numbers) from the 2025–26 session whose subject touches housing supply, zoning, land use, permitting and environmental review, building codes, housing finance, vouchers and rental assistance, tenant protections and rent regulation, shelter siting, and social or supportive housing. Assembly-only bills are not included; where a Senate bill has an Assembly companion it's listed as "Same as". Bills already signed, vetoed, stricken or defeated in committee are left out (for example S10442, the HDC bond cap increase, was signed July 31, 2026, and S5554, barring shelters near transit, was defeated in Cities 1).</div>
+    <div><strong>Status.</strong> The Legislature adjourned in June; bills remain alive until the session ends December 31, 2026. Bills that "passed both houses" have not yet been delivered to the Governor.</div>
+    <div><strong>Cosponsors.</strong> Taken from the current version of each bill on nysenate.gov. Where the Senate site hides part of a long list, rows are marked "list may be incomplete"; check the bill page before relying on an absence. Brad Hoylman-Sigal's bills remain on the record after his departure from the Senate.</div>
+    <div>Sources: <a href="https://www.nysenate.gov/legislation" target="_blank" rel="noopener">NY Senate Open Legislation</a>, bill pages linked from each number; bill discovery via <a href="https://www.smithmoses.com/2026/bills" target="_blank" rel="noopener">Smith &amp; Moses bill search</a>.</div>
+  </footer>
+</div>
+
+<script>
+const TRACKED = [
+  {key:"May", name:"Rachel May", area:"Syracuse + Auburn"},
+  {key:"Bottcher", name:"Erik Bottcher", area:"Chelsea + Upper West Side"},
+  {key:"Salazar", name:"Julia Salazar", area:"Williamsburg + Bushwick"},
+  {key:"Myrie", name:"Zellnor Myrie", area:"PLG + Crown Heights"},
+  {key:"Gounardes", name:"Andrew Gounardes", area:"Bay Ridge, Sunset Park, Carroll Gardens, DTBK"},
+  {key:"Cooney", name:"Jeremy Cooney", area:"Rochester + western suburbs"},
+  {key:"Webb", name:"Lea Webb", area:"Ithaca, Binghamton, Cortland"},
+  {key:"Harckham", name:"Pete Harckham", area:"Westchester + Hudson Valley"},
+  {key:"Brouk", name:"Samra Brouk", area:"Rochester + eastern suburbs"}
+];
+const CATS = [
+  "Zoning & land use",
+  "Permitting & environmental review",
+  "Building code & construction",
+  "Housing finance & production incentives",
+  "Vouchers & rental assistance",
+  "Tenant protections & rent regulation",
+  "Shelters & homelessness",
+  "Social, public & supportive housing"
+];
+// [id, cat index, sponsor, [cosponsors], description, status, same-as, passed flag, note]
+const B = [
+ ["S8662",0,"May",[],"Bars cities, towns and villages from rezoning to reduce the number of homes allowed in an area (height, design, historic and parking rules unaffected).","Senate Cities 2 Committee","A8834"],
+ ["S188",0,"Hoylman-Sigal",["Jackson"],"Limits local zoning power by capping minimum lot sizes, ending off-street parking mandates and barring bans on multifamily housing.","Senate Cities 2 Committee","A2586"],
+ ["S10507",0,"Bottcher",[],"Parking Modernization and Housing Affordability Act: limits municipalities' off-street parking requirements in certain areas.","Senate Local Government Committee",""],
+ ["S9423",0,"Skoufis",["Bottcher"],"Allows homes or mixed-use projects by right on large, underused commercial, office, retail or parking sites, with limits on local density, height and parking rules.","Senate Housing Committee","A10632"],
+ ["S3397",0,"Gounardes",["Bailey","Cleare","Comrie","Cooney","Fahy","Gonzalez","Harckham","Hinchey","Hoylman-Sigal","Jackson","Kavanagh","May","Mayer","Myrie","Parker","Ramos","Rivera","S. Ryan","Salazar","Sepúlveda","Serrano","Stavisky","Webb"],"Faith-Based Affordable Housing Act: lets religious organizations build affordable or mixed-income housing on their land without local zoning barriers, within density and affordability limits.","Senate Housing Committee","A3647",0,"List may be incomplete"],
+ ["S9732",0,"Bynoe",["Bottcher","Cooney","Harckham","Hinchey","Kavanagh","May","Myrie","C. Ryan","Skoufis","Webb"],"Lets library boards develop or lease library-occupied public land for affordable, mixed-use housing while keeping library functions.","Senate Libraries Committee","A11177",0,"List may be incomplete"],
+ ["S4058",0,"May",["Hoylman-Sigal","Kavanagh","Salazar","Webb"],"Lets zoning boards of appeals approve low- and moderate-income housing projects and creates a state appeals board at DHCR to hear local denials.","Senate Housing Committee","A1492"],
+ ["S6958",0,"Jackson",[],"New York Fair Housing Act: requires municipalities to plan for and help build their share of regional affordable housing, backed by a state fund.","Senate Housing Committee",""],
+ ["S5194",0,"Kavanagh",["Jackson"],"Requires every city, town and village to adopt a housing action plan assessing local need and strategies to meet it.","Senate Local Government Committee","A3446"],
+ ["S2083",0,"Kavanagh",[],"Requires local comprehensive plans to include a housing needs assessment across five income bands.","Senate Local Government Committee","A27"],
+ ["S919",0,"May",["Jackson","Kavanagh","Webb"],"Requires local boards and DHCR to report annual housing production and zoning data to the Department of State for online publication.","Passed Senate; Assembly Governmental Operations","A5291",1],
+ ["S10503",0,"Bottcher",[],"Build More, Get More incentive fund: pays municipalities for each new home produced, with higher payments for affordable and supportive units.","Senate Finance Committee","",0,"Amended Sept. 18 and 23, 2026 (now S10503B)"],
+ ["S10506",0,"Bottcher",[],"Raises state school building aid by five points in districts within municipalities that meet transit-oriented zoning or housing growth benchmarks.","Senate Education Committee",""],
+ ["S10123",0,"Bottcher",["Jackson"],"Bars permits for a new multiple dwelling unless it has at least as many homes as the lot previously held, or as zoning allows if fewer.","Senate Housing Committee",""],
+ ["S2420",0,"Hoylman-Sigal",["Jackson"],"Earlier version of S10123: minimum unit count required for new multiple dwellings on a lot.","Senate Housing Committee",""],
+ ["S10497",0,"Bottcher",[],"Creates a legal framework and code standards for shared-housing rooming units in new or converted NYC Class A buildings.","Senate Housing Committee","A11136"],
+ ["S2507",0,"Salazar",["Gianaris","Ramos","Webb"],"Expands NYC's basement and cellar apartment conversion pilot to Brooklyn CD 5 and Queens CDs 1, 3 and 4.","Senate Housing Committee","A597"],
+ ["S10217",0,"Hinchey",[],"Accessory Dwelling Unit Incentive Act: forgivable state loans, an income tax credit and an optional local tax exemption for ADUs rented to income-qualified tenants.","Senate Housing Committee","A6778"],
+ ["S10180",0,"Harckham",[],"Lets localities exempt from property tax the added value of auxiliary dwelling units built for seniors or people with disabilities.","Passed Senate 61–0; in Assembly","A11427",1],
+ ["S4780",0,"Skoufis",["Harckham"],"Requires towns and villages to notify neighboring municipalities of zoning changes affecting land within 500 feet of their border.","Passed Senate 40–20; Assembly Local Governments","",1],
+ ["S7365",0,"Harckham",[],"Extends state smart growth infrastructure criteria to the Urban Development Corporation and adds a walkable-transit criterion.","Senate Environmental Conservation Committee",""],
+ ["S3703",0,"Comrie",[],"Lets New York City create a land bank by local law.","Senate Corporations Committee",""],
+ ["S8056",0,"Harckham",[],"Lets Westchester County reserve up to half of tenant slots in state-aided housing for local residents.","Senate Housing Committee","A8631"],
+ ["S9652",0,"Bottcher",[],"Allows NYC housing programs to give occupancy preference to artists when an agency or the state authorizes it.","Passed Senate 40–21; in Assembly","A10479",1],
+ ["S3857",0,"Hoylman-Sigal",["Comrie","Gianaris","Salazar","Sepúlveda"],"Requires any NYCHA disposition of land or buildings to go through the city's ULURP land use review.","Senate Cities 1 Committee",""],
+ ["S6685",0,"Cleare",[],"Requires NYC Health + Hospitals to follow ULURP when disposing of land or buildings.","Senate Cities 1 Committee","A7587"],
+ ["S256",0,"Martinez",["Comrie","Harckham","Jackson","Webb"],"Declares expanding housing options state policy and clarifies that industrial development agencies may finance housing projects.","Senate Finance Committee","A9299"],
+ ["S529",0,"Martins",["Borrello","Canzoneri-Fitzpatrick","Murray","Rhoads","Rolison"],"Creates a temporary task force on best practices to help local governments encourage housing construction.","Senate Housing Committee","",0,"List may be incomplete"],
+
+ ["S3492",1,"May",["Cooney","Harckham","Hoylman-Sigal","Jackson","Salazar"],"Sustainable Affordable Housing and Sprawl Prevention Act: narrows SEQR review and legal challenges for new housing in already-developed areas.","Senate Rules Committee (passed Senate in 2025)","A6283"],
+ ["S8642",1,"May",[],"Planning Approval Predictability Act: planning boards must publish a complete-application checklist and rule on completeness within 30 days.","Senate Local Government Committee","A10678"],
+ ["S10695",1,"Bottcher",[],"Requires building departments to estimate permit review times for residential projects and allows licensed third-party plan review when reviews run past 30 business days.","Senate Rules Committee","A11685"],
+ ["S3545",1,"Borrello",["Griffo","Rhoads"],"Makes SEQR deadlines binding, exempts housing projects of 20+ units from state review, and lets municipalities run their own reviews and deny permits on them.","Senate Environmental Conservation Committee",""],
+ ["S1577",1,"Borrello",[],"Requires state agencies to attach a housing-cost impact note, prepared by DHCR, to proposed rules affecting housing costs.","Senate Commerce Committee",""],
+ ["S4939",1,"Comrie",[],"Requires an environmental impact statement for any new building development within one mile of a transit facility.","Senate Transportation Committee",""],
+
+ ["S10501",2,"Bottcher",[],"Directs the state code council to allow single-stair residential buildings up to six stories in cities of one million or more.","Senate Housing Committee",""],
+ ["S10199",2,"Kavanagh",[],"Repeals outdated Multiple Dwelling Law alteration rules and aligns them with current NYC building code and permitting.","Passed Senate 60–1; Assembly Housing","A11308",1],
+ ["S10200",2,"Kavanagh",["Salazar"],"Lets multiple dwellings relax certain window light and ventilation minimums when installing efficient windows or window heat pumps.","Passed Senate 59–1; Assembly Housing","A11319",1],
+ ["S4852",2,"Skoufis",["Jackson","Sepúlveda","Webb"],"Requires the state building and energy codes to be updated within 18 months of new international code editions.","Passed Senate 42–20; Assembly Governmental Operations","",1],
+ ["S8918",2,"Kavanagh",[],"Build Up New York: grants for mass-timber affordable housing built atop existing buildings, plus mass-timber tax credits.","Senate Finance Committee","A9255"],
+ ["S2542",2,"Myrie",["Cleare","Gounardes","Jackson","Kavanagh"],"Classifies illegal conversions of NYC apartments (room splitting, wall changes, unlawful occupancy) as tenant harassment.","Senate Codes Committee","A2287"],
+ ["S1313",2,"Gounardes",[],"Makes it a felony to skip a required permit or certificate of occupancy when an illegal alteration causes injury.","Senate Codes Committee",""],
+ ["S2546",2,"Myrie",[],"Lets lenders or lienholders of an abandoned multiple dwelling seek a receiver or make repairs to avoid city takeover.","Passed Senate 37–22; Assembly floor calendar","A3444",1],
+
+ ["S10500",3,"Gounardes",[],"Changes 485-x Affordability Option D so that 60% of homeowners, not all, must commit to five-year primary residence.","Senate Local Government Committee","A11484"],
+ ["S10345",3,"Gounardes",["Comrie","Fernandez","Harckham","Hinchey","Martinez","Ramos","Salazar","Skoufis","Sutton"],"Raises the 485-x Option D homeownership assessed-value cap from $89 to $120 per square foot, indexed to inflation.","Senate Local Government Committee","A11314",0,"List may be incomplete"],
+ ["S4414",3,"May",[],"Lets localities exempt new or converted affordable rental buildings of 20+ units from property taxes.","Senate Housing Committee",""],
+ ["S4416",3,"May",[],"Allows 4% low-income housing tax credits for preserving existing housing, not only new construction.","Senate Housing Committee",""],
+ ["S733",3,"May",["Salazar"],"Creates a state revolving fund for zero- or low-interest loans to mixed-income housing developers.","Senate Housing Committee","A799"],
+ ["S2707",3,"May",["Jackson"],"Directs DHCR to build a common application and web portal for state housing funding.","Passed Senate 52–0; Assembly Housing","",1],
+ ["S1131",3,"May",["Cleare"],"Lets cities, towns and villages adopt a land value (split-rate) tax by local law, taxing land at a higher rate than buildings; revenue-neutral, and may apply citywide or to one neighborhood.","Senate Local Government Committee","A3339",0,"Amended Jan. 27, 2026 (now S1131B); replaced the earlier five-municipality pilot"],
+ ["S5002",3,"Hinchey",[],"Puts approved LIHTC applicants on a waitlist with an expected allocation date so they need not reapply each year.","Senate Housing Committee","A6889"],
+ ["S10446",3,"Kavanagh",[],"Makes the Housing Finance Agency's and related state housing finance and mortgage agencies' powers permanent by removing their expiration dates.","Passed Senate 39–21; Assembly Housing","",1],
+ ["S9571",3,"Kavanagh",[],"Allows state low-income housing tax credits to be transferred more than once.","Passed both houses; awaiting delivery to Governor","A10588",2],
+ ["S3219",3,"Kavanagh",[],"Creates an affordable housing relief fund of mostly zero-interest loans to repair distressed income-restricted rentals.","Senate Housing Committee","A1729"],
+ ["S8170",3,"Kavanagh",["Stavisky","Bottcher"],"Revives a NYC J-51-style tax abatement for renovations that preserve habitability in affordable housing.","Senate Finance Committee","A10549"],
+ ["S595",3,"Hinchey",["Ashby","Jackson","May"],"Small Rental Housing Development Initiative: state loans for nonprofits to build or rehab small affordable rentals, with a rural set-aside.","Senate Finance Committee","A489"],
+ ["S9259",3,"Fahy",["Baskin","Comrie","C. Ryan"],"Creates tax credits for converting mostly vacant office buildings outside NYC into housing.","Senate Investigations & Gov't Operations Committee","A10192"],
+ ["S6021",3,"Baskin",["Comrie","Cooney","Fahy","Gallivan","May","Rolison","Sutton","Zellner"],"Historic rehab tax credit for very large vacant \"white elephant\" buildings, with extra benefit when paired with LIHTC; extends the existing credit to 2037.","Senate Budget & Revenue Committee","A10366",0,"List may be incomplete"],
+ ["S5109",3,"Ashby",["Borrello","Griffo","Martins","Murray","Oberacker","Rhoads","Rolison","Tedisco","Walczyk"],"Shovel-ready housing program: opt-in pre-approval of parcels for housing, plus infrastructure grants and homeowner tax rebates.","Senate Housing Committee","A2325",0,"List may be incomplete"],
+ ["S851",3,"Helming",["Borrello","Martins","Ortt","Rhoads","Rolison"],"Tax credit of up to 10% of utility and water infrastructure costs for new housing.","Senate Investigations & Gov't Operations Committee","A7478",0,"List may be incomplete"],
+ ["S576",3,"Helming",["Borrello","Rhoads","Rolison"],"Tax credit of up to $2,000 per new manufactured home installed.","Senate Investigations & Gov't Operations Committee",""],
+ ["S23",3,"Tedisco",["Borrello","Gallivan","Griffo","Helming","Oberacker","Rhoads","Rolison"],"Extends the farm investment tax credit to construction of farmworker housing.","Senate Budget & Revenue Committee","A297",0,"List may be incomplete"],
+ ["S2523",3,"Ramos",["Addabbo","Comrie","Harckham","Hoylman-Sigal","Jackson","Liu","Parker","Rivera","C. Ryan","Salazar","Sanders","Scarcella-Spanton","Serrano","Stavisky"],"Jobs and housing pilot funding affordable and workforce housing tied to apprenticeships, prevailing wage and pension-fund financing.","Senate Finance Committee","A3996",0,"List may be incomplete"],
+ ["S9674",3,"Baskin",[],"Lets cities (outside NYC) and towns create community housing funds financed by a voter-approved real estate transfer tax.","Senate Local Government Committee","A331"],
+ ["S572",3,"S. Ryan",["Jackson"],"Same approach as S9674: local community housing funds backed by a voter-approved transfer tax.","Senate Local Government Committee","A331"],
+ ["S7995",3,"Hinchey",[],"Authorizes Ulster County to establish an affordable housing fund.","Senate Local Government Committee",""],
+ ["S8267",3,"Oberacker",[],"Lets the Town of Rochester (Ulster County) fund housing programs with a supplemental real estate transfer tax.","Senate Local Government Committee","A7922"],
+ ["S6761",3,"Jackson",["Cleare","Comrie","Sanders","Sepúlveda"],"Requires new NYC affordable housing programs to use the lower of zip-code or regional area median income.","Senate Cities 1 Committee","A2187"],
+ ["S5226",3,"Jackson",["Cleare","Fernandez","Sepúlveda"],"Sets standards for advertising housing as \"deeply affordable\" and requires disclosure of affordable vs. market-rate share.","Senate Consumer Protection Committee","A7380"],
+ ["S880",3,"Jackson",["Cleare","Hoylman-Sigal"],"HDFC Fairness, Preservation and Affordability Act: lets HDFC co-ops with expired controls reincorporate, with tax breaks for keeping income limits.","Senate Housing Committee","A2707"],
+ ["S1354",3,"Cleare",["Bailey","Cooney","Fahy","Fernandez","Gounardes","Hoylman-Sigal","Jackson","Krueger","May","Myrie","C. Ryan","Salazar","Scarcella-Spanton","Skoufis","Stavisky"],"Lets certain post-1996 NYC rentals convert to condos if owners keep income-restricted units permanently affordable.","Senate Housing Committee","",0,"List may be incomplete"],
+ ["S2627",3,"Kavanagh",["Brisport","Cleare","Cooney","Fahy","Gounardes","Helming","Hinchey","Jackson","Myrie","S. Ryan"],"Homeowner Protection Program: free housing counseling and legal services for homeowners at risk of losing their homes.","Passed both houses; awaiting delivery to Governor","A1625",2,"List may be incomplete; Brouk, Rolison and Skoufis were on the original version"],
+ ["S3068",3,"Sanders",["Jackson"],"State subsidy toward closing costs for long-time public housing or subsidized tenants buying a home.","Senate Finance Committee","A8107"],
+
+ ["S72",4,"Kavanagh",["Bailey","Baskin","Brisport","Brouk","Bynoe","Cleare","Comrie","Cooney","Fahy","Fernandez","Gianaris","Gonzalez","Gounardes","Harckham","Hinchey","Hoylman-Sigal","Jackson","Krueger","Liu","May","Mayer","Myrie","Parker","Persaud","Ramos","Rivera","C. Ryan","S. Ryan","Salazar","Sanders","Scarcella-Spanton","Sepúlveda","Serrano","Skoufis","Stavisky","Webb"],"Housing Access Voucher Program: a state rental voucher for homeless and at-risk households up to 50% AMI.","Senate Housing Committee","A1704"],
+ ["S9430",4,"Kavanagh",["Salazar"],"Gives HAV pilot priority to households at risk of losing federal subsidies and sets state inspection standards for voucher units.","Senate Finance Committee","A10992"],
+ ["S1130",4,"May",["Cleare","Jackson","Kavanagh","Salazar"],"Bars landlords from using income to deny or set terms for renters paying with vouchers, subsidies or public assistance.","Passed Senate 44–14; Assembly Housing","A4120",1],
+ ["S958",4,"Kavanagh",[],"Lets NYC offer CityFHEPS rental assistance regardless of immigration status.","Senate Social Services Committee","A1503"],
+ ["S9734",4,"Kavanagh",[],"Expands emergency grants for rent, tax or mortgage arrears and raises the income cap to 200% of poverty.","Senate Social Services Committee","A501"],
+ ["S5864",4,"Gounardes",["Helming"],"Refundable state income tax credit for renters paying more than 30% of income toward rent.","Senate Budget & Revenue Committee","A3215"],
+ ["S5808",4,"Sepúlveda",[],"Renter tax credit for households under 50% AMI paying more than 30% of income in rent.","Senate Budget & Revenue Committee","A3736"],
+ ["S1805",4,"Fernandez",["Jackson","Mayer","Ramos","Sepúlveda"],"Extends SCRIE/DRIE-style rent freezes to rent-regulated tenants paying over half their income in rent.","Senate Cities 1 Committee","A1877"],
+
+ ["S4659",5,"Kavanagh",["Bailey","Baskin","Bottcher","Brisport","Brouk","Cleare","Gonzalez","Gounardes","Harckham","Hinchey","Jackson","Krueger","Liu","May","Mayer","Myrie","Parker","Ramos","Rivera","Salazar","Sanders","Sepúlveda","Serrano","Stavisky","Webb"],"Lets localities outside NYC declare a housing emergency on broader data and extends rent stabilization to smaller and newer buildings.","Senate Finance Committee","A4877"],
+ ["S10169",5,"Salazar",["Myrie","Bailey","Brisport","Brouk","Cleare","Cooney","Fernandez","Gianaris","Gonzalez","Hinchey","Jackson","May","Parker","Ramos","Rivera","Sanders","Sepúlveda","Serrano","Webb"],"Tenant Opportunity to Purchase Act: gives tenants a right of first refusal when their building is sold.","Senate Housing Committee","A6100"],
+ ["S107",5,"Krueger",["Bailey","Hoylman-Sigal","Jackson","Liu","Serrano","Stavisky"],"Gives tenants a right of first refusal on privatizing Mitchell-Lama and subsidized buildings, with advance notice of conversion.","Senate Housing Committee","A3100",0,"List may be incomplete"],
+ ["S912",5,"Kavanagh",["Hinchey","Jackson","May","Rivera","Skoufis","Webb"],"Creates a statewide rental registry listing code violations and harassment findings.","Senate Finance Committee",""],
+ ["S1217",5,"Bailey",["Hoylman-Sigal","Krueger","Parker","Serrano","Stavisky"],"Prohibits warehousing vacant apartments and tenant harassment, with civil penalties.","Senate Housing Committee","A1618",0,"List may be incomplete"],
+ ["S9914",5,"Krueger",["Jackson","Sepúlveda","Serrano"],"Requires owners who demolish or gut-renovate rent-regulated buildings to restore an equal number of regulated units.","Senate Cities 1 Committee","A6297"],
+ ["S6904",5,"Comrie",["Fernandez","Sepúlveda","Addabbo","Martinez","Parker","Persaud","Scarcella-Spanton"],"Lets owners reset regulated rents on restored units vacated after 10+ year tenancies, capped at the Section 8 payment standard.","Senate Housing Committee","A7757"],
+ ["S8215",5,"Gianaris",["Jackson","Stavisky"],"Changes rent guidelines board makeup and the factors boards weigh in setting annual increases.","Senate Housing Committee","A8533"],
+ ["S1642",5,"Cleare",[],"Requires rent-stabilized units lost to fire, disaster or eminent domain to be replaced at the same rent in later construction.","Senate Housing Committee","A6170"],
+ ["S10509",5,"Bottcher",[],"Expands the Loft Law's interim multiple dwelling definition to keep protections for long-term residents.","Senate Housing Committee","A11135"],
+ ["S1557",5,"May",["Salazar"],"Tenants Organizing Act: defines tenant organizations' protected activities and guest rights at meetings.","Senate Housing Committee","A1535"],
+
+ ["S3787",6,"Myrie",[],"Bars charging homeless people rent or a share of income to stay in shelter.","Senate Finance Committee",""],
+ ["S6632",6,"Jackson",[],"Requires NYC to consult community boards at least 365 days before siting or changing a homeless shelter.","Senate Cities 1 Committee","A5719"],
+ ["S3884",6,"Sepúlveda",["Addabbo"],"Requires NYC DHS to give community boards 60 days' notice before contracting a new or expanded shelter site.","Senate Social Services Committee","A308"],
+
+ ["S5674",7,"Cleare",["Brisport","Brouk","Cooney","Gonzalez","Hinchey","Hoylman-Sigal","Jackson","Mayer","Myrie","Rivera","Salazar","Sanders","Sepúlveda","Stavisky","Webb"],"Creates a Social Housing Development Authority to build, buy and rehab permanently affordable housing.","Senate Finance Committee","A6265",0,"List may be incomplete"],
+ ["S136",7,"Cleare",["Borrello","Comrie","Gonzalez","Jackson","Krueger","May","Myrie","Salazar","Serrano"],"Supportive Housing Modernization Act: lets NYSSHP providers seek higher contract rates up to ESSHI levels.","Senate Social Services Committee","A2134",0,"List may be incomplete"],
+ ["S4908",7,"Fahy",["Addabbo","Ashby","Cleare","Gallivan","Gonzalez","Hinchey","Martins","May","Mayer","Palumbo","Parker","Rhoads","C. Ryan","Salazar","Sepúlveda","Skoufis","Stavisky"],"Innovative housing initiative helping people with developmental disabilities live more independently.","Senate Finance Committee",""],
+ ["S9869",7,"Brouk",["Ashby","Cleare","May","Palumbo","Rhoads","Rivera","Salazar","Webb"],"Creates a task force on helping older residents of mental health housing age in place.","Passed Senate 61–0; in Assembly","A5569",1,"List may be incomplete"],
+ ["S10713",7,"Sutton",[],"Lets DHCR enforce building and maintenance codes at public housing owned by municipalities and local housing authorities, as it does for private rentals.","Senate Rules Committee",""]
+];
+
+const keys = new Set(TRACKED.map(t=>t.key));
+const bills = B.map(r => {
+  const [id,cat,sp,cos,desc,status,same,passed,note] = r;
+  const people = [sp, ...cos];
+  return {id,cat,sp,cos,desc,status,same,passed:passed||0,note:note||"",
+    tracked: people.filter(p=>keys.has(p)),
+    hay:(id+" "+desc+" "+sp+" "+cos.join(" ")+" "+status+" "+CATS[cat]).toLowerCase()};
+});
+
+const state = {sen:null, cat:"", q:"", only:false};
+try { const s = JSON.parse(localStorage.getItem("hb-state")||"null"); if (s) Object.assign(state, s); } catch(e){}
+function save(){ try{ localStorage.setItem("hb-state", JSON.stringify(state)); }catch(e){} }
+
+const roster = document.getElementById("roster");
+TRACKED.forEach(t => {
+  const sp = bills.filter(b=>b.sp===t.key).length;
+  const co = bills.filter(b=>b.cos.includes(t.key)).length;
+  const btn = document.createElement("button");
+  btn.className="sen"; btn.type="button"; btn.dataset.key=t.key;
+  btn.innerHTML = `<span class="nm">Sen. ${t.name}</span><span class="ds">${t.area}</span><span class="ct"><b>${sp}</b> sponsored · <b>${co}</b> cosponsored</span>`;
+  btn.addEventListener("click", () => { state.sen = state.sen===t.key ? null : t.key; render(); });
+  roster.appendChild(btn);
+});
+
+const catSel = document.getElementById("cat");
+catSel.innerHTML = `<option value="">All subjects</option>` + CATS.map((c,i)=>`<option value="${i}">${c}</option>`).join("");
+const q = document.getElementById("q"), only = document.getElementById("onlyhits");
+q.addEventListener("input", e=>{state.q=e.target.value; render();});
+catSel.addEventListener("change", e=>{state.cat=e.target.value; render();});
+only.addEventListener("change", e=>{state.only=e.target.checked; render();});
+document.getElementById("clear").addEventListener("click", ()=>{Object.assign(state,{sen:null,cat:"",q:"",only:false}); render();});
+
+const name = n => keys.has(n) ? `<mark>${n}</mark>` : n;
+function url(id){ return `https://www.nysenate.gov/legislation/bills/2025/${id}`; }
+
+function render(){
+  q.value = state.q; catSel.value = state.cat; only.checked = state.only;
+  roster.querySelectorAll(".sen").forEach(b=>b.setAttribute("aria-pressed", b.dataset.key===state.sen ? "true":"false"));
+  const qq = state.q.trim().toLowerCase();
+  const shown = bills.filter(b =>
+    (state.cat==="" || b.cat===+state.cat) &&
+    (!state.sen || b.sp===state.sen || b.cos.includes(state.sen)) &&
+    (!state.only || b.tracked.length) &&
+    (!qq || b.hay.includes(qq)));
+  document.getElementById("count").textContent = `${shown.length} of ${bills.length} bills`;
+  const list = document.getElementById("list");
+  if (!shown.length) { list.innerHTML = `<div class="empty">No bills match these filters. Reset to see all ${bills.length}.</div>`; save(); return; }
+  list.innerHTML = CATS.map((c,i) => {
+    const rows = shown.filter(b=>b.cat===i);
+    if (!rows.length) return "";
+    return `<section class="cat"><h2>${c}</h2>` + rows.map(b => {
+      const pill = b.passed===2 ? `<span class="pill passed">Passed both houses</span>` : b.passed===1 ? `<span class="pill passed">Passed Senate</span>` : "";
+      return `<article class="bill ${b.tracked.length?"hit":""}">
+        <div class="id"><a href="${url(b.id)}" target="_blank" rel="noopener">${b.id}</a></div>
+        <div style="min-width:0">
+          <p class="desc">${b.desc}</p>
+          <div class="meta">${pill}<span>${b.status}</span>${b.same?`<span>Same as ${b.same}</span>`:""}</div>
+        </div>
+        <div class="people">
+          <div><span class="lbl">Sponsor</span><br><span class="sp">${name(b.sp)}</span></div>
+          <div><span class="lbl">Cosponsors (${b.cos.length})</span><br>${b.cos.length ? b.cos.map(name).join(", ") : `<span class="none">None listed</span>`}</div>
+          ${b.note?`<div class="note">${b.note}</div>`:""}
+        </div>
+      </article>`;}).join("") + `</section>`;
+  }).join("");
+  save();
+}
+render();
+</script>
+
+</body></html>
