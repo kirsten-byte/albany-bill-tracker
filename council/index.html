@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NYC Council Housing Bill Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Same ledger layout as the Albany tracker: member roster, filters, then one row per bill grouped by subject. */
+:root {
+  --bg: #f6f7f5; --surface: #ffffff; --ink: #18242a; --muted: #5b6970; --rule: #d9dfdd;
+  --accent: #1f5f73; --accent-soft: #e2eef1; --mark: #ffe58a; --mark-ink: #3a2c00; --good: #2e7d4f; --soon: #8a4b00;
+  --font-display: "Literata", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11181b; --surface: #182226; --ink: #e4ebec; --muted: #9aa9ae; --rule: #2a383d;
+  --accent: #7cc0d3; --accent-soft: #1d3138; --mark: #6b5a12; --mark-ink: #fff3c4; --good: #6fcf97; --soon: #f0b46a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11181b; --surface: #182226; --ink: #e4ebec; --muted: #9aa9ae; --rule: #2a383d;
+  --accent: #7cc0d3; --accent-soft: #1d3138; --mark: #6b5a12; --mark-ink: #fff3c4; --good: #6fcf97; --soon: #f0b46a; color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; display: grid; gap: 28px; }
+h1 { font-family: var(--font-display); font-weight: 650; font-size: clamp(1.7rem, 3.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.25rem; margin: 0; }
+.lede { color: var(--muted); max-width: 70ch; margin: 8px 0 0; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.xlink { font-size: 14px; margin-top: 10px; }
+a { color: var(--accent); }
+
+details.members > summary { cursor: pointer; font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 12px; }
+.boro { margin-bottom: 14px; }
+.boro h3 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.sen { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; text-align: left; font: inherit; color: inherit; cursor: pointer; display: grid; gap: 2px; }
+.sen:hover { border-color: var(--accent); }
+.sen[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.sen:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sen .nm { font-weight: 600; font-size: 14px; }
+.sen .ds { font-size: 12px; color: var(--muted); }
+.sen .ct { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sen .ct b { font-weight: 600; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.controls input[type=search], .controls select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--ink); max-width: 100%; }
+.controls input[type=search] { flex: 1 1 240px; min-width: 0; }
+.controls label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+.count { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.clear { font: inherit; font-size: 14px; background: none; border: 0; color: var(--accent); cursor: pointer; text-decoration: underline; padding: 4px; }
+
+section.cat { display: grid; }
+section.cat > h2 { padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.bill { display: grid; grid-template-columns: 92px minmax(0, 1fr) minmax(0, 300px); gap: 6px 20px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.bill.hit .id { background: var(--mark); color: var(--mark-ink); }
+.id { font-family: var(--font-mono); font-size: 14px; align-self: start; padding: 2px 6px; border-radius: 4px; justify-self: start; white-space: nowrap; }
+.id a { color: inherit; text-decoration: none; }
+.id a:hover { text-decoration: underline; }
+.desc { margin: 0; max-width: 72ch; }
+.meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; align-items: center; }
+.pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.pill.heard { border-color: var(--good); color: var(--good); }
+.pill.soon { border-color: var(--soon); color: var(--soon); }
+.people { font-size: 13.5px; display: grid; gap: 4px; }
+.people .lbl { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.people .sp { font-weight: 600; }
+mark { background: var(--mark); color: var(--mark-ink); padding: 0 3px; border-radius: 3px; font-weight: 600; }
+.note { font-size: 12.5px; color: var(--muted); font-style: italic; }
+.none { color: var(--muted); }
+.empty { padding: 24px 0; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); display: grid; gap: 8px; max-width: 80ch; }
+
+@media (max-width: 760px) {
+  .bill { grid-template-columns: 1fr; }
+  .people { padding-top: 4px; }
+  .controls { position: static; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">NYC Council · 2026–29 session · active local laws</div>
+    <h1>Housing, zoning and land-use bills at City Hall</h1>
+    <p class="lede">Introductions still pending in committee as of October 19, 2026, with each bill's prime sponsor and cosponsors from the Council's legislative record. Tap a Council Member to show only the bills they're on; their name is highlighted on each row.</p>
+    <div class="xlink"><a href="../">← State bills: the Albany housing tracker</a></div>
+  </header>
+
+  <details class="members" id="members" open>
+    <summary>All 51 Council Members</summary>
+    <div id="roster"></div>
+  </details>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search bill number, topic or Council Member" aria-label="Search bills">
+    <select id="cat" aria-label="Filter by subject"></select>
+    <select id="mem" aria-label="Filter by Council Member"></select>
+    <label><input type="checkbox" id="onlyheard"> Only bills that have had a hearing</label>
+    <button class="clear" id="clear" type="button">Reset</button>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+
+  <div id="list" style="display:grid;gap:32px"></div>
+
+  <footer>
+    <div><strong>Scope.</strong> Local law introductions (Int. numbers) from the 2026–29 Council session, using the same subjects as the Albany tracker: zoning and land use, permitting and environmental review, building code and construction, housing finance and production, vouchers and rental assistance, tenant protections and rent regulation, shelters and homelessness, and social, public and supportive housing. Resolutions are not included. Bills on building energy and emissions, worksite safety, sidewalk sheds, parking garages and other building topics that don't bear on housing supply, cost or tenancy are left out. Bills already enacted, vetoed, withdrawn or filed are left out (for example Int. 966, establishing a rental assistance voucher program, was enacted July 30, 2026; Int. 839, making the certification of no harassment program permanent, was enacted Sept. 12; and Int. 421, allowing cellar units in new one- and two-family homes, was enacted April 9).</div>
+    <div><strong>Status.</strong> Council bills stay alive until the session ends December 31, 2029. "Heard and laid over" means the committee held a hearing but hasn't voted. Upcoming dates are committee meetings where the bill is on the agenda.</div>
+    <div><strong>Sponsors.</strong> The first name listed on the Council's record is shown as prime sponsor; the rest are cosponsors. Public Advocate Jumaane Williams sponsors some bills and isn't part of the 51-member roster. Rows marked "list may be incomplete" include sponsors the data doesn't name, such as borough presidents; check the bill page.</div>
+    <div>Sources: <a href="https://legistar.council.nyc.gov/Legislation.aspx" target="_blank" rel="noopener">NYC Council Legistar</a>, via the <a href="https://github.com/jehiah/nyc_legislation" target="_blank" rel="noopener">nyc_legislation</a> mirror of the Council's legislative API (synced Oct. 18, 2026); bill numbers link to <a href="https://intro.nyc/" target="_blank" rel="noopener">intro.nyc</a>, which links each bill to its Legistar page. Member districts from <a href="https://council.nyc.gov/districts" target="_blank" rel="noopener">council.nyc.gov</a>.</div>
+  </footer>
+</div>
+
+<script>
+const MEMBERS = [
+ {"d": 1, "key": "Marte", "name": "Christopher Marte", "area": "FiDi, Tribeca, Chinatown, LES"},
+ {"d": 2, "key": "Epstein", "name": "Harvey Epstein", "area": "Greenwich Village, East Village, Gramercy"},
+ {"d": 3, "key": "Wilson", "name": "Carl Wilson", "area": "West Village, Chelsea, Hell's Kitchen"},
+ {"d": 4, "key": "Maloney", "name": "Virginia Maloney", "area": "Midtown, Stuy Town, Turtle Bay"},
+ {"d": 5, "key": "Menin", "name": "Julie Menin", "area": "Upper East Side, Roosevelt Island"},
+ {"d": 6, "key": "Brewer", "name": "Gale A. Brewer", "area": "Upper West Side, Lincoln Square"},
+ {"d": 7, "key": "Abreu", "name": "Shaun Abreu", "area": "UWS, Morningside Heights, West Harlem"},
+ {"d": 8, "key": "Encarnación", "name": "Elsie Encarnación", "area": "East Harlem, Mott Haven"},
+ {"d": 9, "key": "Salaam", "name": "Yusef Salaam", "area": "Harlem"},
+ {"d": 10, "key": "De La Rosa", "name": "Carmen De La Rosa", "area": "Washington Heights, Inwood"},
+ {"d": 11, "key": "Dinowitz", "name": "Eric Dinowitz", "area": "Riverdale, Kingsbridge, Norwood"},
+ {"d": 12, "key": "Riley", "name": "Kevin C. Riley", "area": "Williamsbridge, Wakefield, Co-op City"},
+ {"d": 13, "key": "Aldebol", "name": "Shirley Aldebol", "area": "Throggs Neck, Pelham Bay, Morris Park"},
+ {"d": 14, "key": "P. Sanchez", "name": "Pierina Ana Sanchez", "area": "Fordham, University Heights, Kingsbridge"},
+ {"d": 15, "key": "Feliz", "name": "Oswald Feliz", "area": "Belmont, East Tremont, Fordham"},
+ {"d": 16, "key": "Stevens", "name": "Althea Stevens", "area": "Morrisania, Highbridge, Claremont"},
+ {"d": 17, "key": "J. Sanchez", "name": "Justin Sanchez", "area": "Mott Haven, Hunts Point, Longwood"},
+ {"d": 18, "key": "Farías", "name": "Amanda Farías", "area": "Soundview, Castle Hill, Parkchester"},
+ {"d": 19, "key": "Paladino", "name": "Vickie Paladino", "area": "College Point, Whitestone, Bayside"},
+ {"d": 20, "key": "Ung", "name": "Sandra Ung", "area": "Flushing, Fresh Meadows"},
+ {"d": 21, "key": "Thomas-Henry", "name": "Shanel Thomas-Henry", "area": "East Elmhurst, Corona, North Corona"},
+ {"d": 22, "key": "Cabán", "name": "Tiffany Cabán", "area": "Astoria"},
+ {"d": 23, "key": "Lee", "name": "Linda Lee", "area": "Bayside, Oakland Gardens, Queens Village"},
+ {"d": 24, "key": "Gennaro", "name": "James F. Gennaro", "area": "Kew Gardens Hills, Fresh Meadows, Briarwood"},
+ {"d": 25, "key": "Krishnan", "name": "Shekar Krishnan", "area": "Jackson Heights, Elmhurst"},
+ {"d": 26, "key": "Won", "name": "Julie Won", "area": "Long Island City, Sunnyside, Woodside"},
+ {"d": 27, "key": "Williams", "name": "Nantasha Williams", "area": "Jamaica, St. Albans, Cambria Heights"},
+ {"d": 28, "key": "Hankerson", "name": "Ty Hankerson", "area": "South Ozone Park, South Jamaica"},
+ {"d": 29, "key": "Schulman", "name": "Lynn Schulman", "area": "Forest Hills, Kew Gardens, Richmond Hill"},
+ {"d": 30, "key": "Wong", "name": "Phil Wong", "area": "Maspeth, Middle Village, Glendale"},
+ {"d": 31, "key": "Brooks-Powers", "name": "Selvena N. Brooks-Powers", "area": "Far Rockaway, Laurelton, Rosedale"},
+ {"d": 32, "key": "Ariola", "name": "Joann Ariola", "area": "Howard Beach, Woodhaven, Rockaway"},
+ {"d": 33, "key": "Restler", "name": "Lincoln Restler", "area": "Greenpoint, Williamsburg, DTBK, Brooklyn Heights"},
+ {"d": 34, "key": "Gutiérrez", "name": "Jennifer Gutiérrez", "area": "Williamsburg, Bushwick, Ridgewood"},
+ {"d": 35, "key": "Hudson", "name": "Crystal Hudson", "area": "Fort Greene, Clinton Hill, Prospect Heights, Crown Heights"},
+ {"d": 36, "key": "Ossé", "name": "Chi Ossé", "area": "Bed-Stuy, Crown Heights (North)"},
+ {"d": 37, "key": "Nurse", "name": "Sandy Nurse", "area": "Bushwick, Cypress Hills, East New York"},
+ {"d": 38, "key": "Avilés", "name": "Alexa Avilés", "area": "Red Hook, Sunset Park"},
+ {"d": 39, "key": "Hanif", "name": "Shahana Hanif", "area": "Park Slope, Carroll Gardens, Kensington"},
+ {"d": 40, "key": "Joseph", "name": "Rita C. Joseph", "area": "Flatbush, Ditmas Park, PLG"},
+ {"d": 41, "key": "Mealy", "name": "Darlene Mealy", "area": "Crown Heights, Brownsville, East Flatbush"},
+ {"d": 42, "key": "Banks", "name": "Chris Banks", "area": "East New York, Canarsie"},
+ {"d": 43, "key": "Zhuang", "name": "Susan Zhuang", "area": "Sunset Park, Bensonhurst, Dyker Heights"},
+ {"d": 44, "key": "Felder", "name": "Simcha Felder", "area": "Borough Park, Midwood"},
+ {"d": 45, "key": "Louis", "name": "Farah N. Louis", "area": "Flatbush, Flatlands, Marine Park"},
+ {"d": 46, "key": "Narcisse", "name": "Mercedes Narcisse", "area": "Canarsie, Mill Basin, Sheepshead Bay"},
+ {"d": 47, "key": "Santosuosso", "name": "Kayla Santosuosso", "area": "Bay Ridge, Bath Beach, Coney Island"},
+ {"d": 48, "key": "Vernikov", "name": "Inna Vernikov", "area": "Brighton Beach, Sheepshead Bay, Gravesend"},
+ {"d": 49, "key": "Hanks", "name": "Kamillah M. Hanks", "area": "North Shore Staten Island"},
+ {"d": 50, "key": "Carr", "name": "David Carr", "area": "Mid-Island Staten Island"},
+ {"d": 51, "key": "Morano", "name": "Frank Morano", "area": "South Shore Staten Island"}
+];
+const B = [
+ ["650", 0, "Restler", ["Nurse", "Cabán", "Krishnan", "P. Sanchez", "Mealy", "Hudson", "Avilés", "Ossé", "Brewer", "Abreu", "De La Rosa", "Won", "Marte", "Farías", "Hanif", "J. Sanchez", "Louis", "Brooks-Powers", "Stevens"], "When the city disposes of land for affordable housing or other public purposes, requires priority for nonprofit developers and community land trusts.", "Housing and Buildings Committee", 0, "", "List may be incomplete", "2026-02-12"],
+ ["66", 0, "Maloney", ["Louis", "Restler", "Abreu", "Feliz", "P. Sanchez", "Hanif", "Wilson", "Joseph", "Hanks", "Schulman", "Encarnación"], "Allows shared-housing rooming units in new class A multiple dwellings and buildings converted to class A use.", "Heard and laid over, Housing and Buildings (Feb 9)", 1, "", "", "2026-01-29"],
+ ["879", 0, "Narcisse", ["Riley", "Brooks-Powers", "Louis", "Feliz", "Stevens", "Salaam"], "Loosens short-term rental rules in owner-occupied one- and two-family homes: up to four boarders, host need not be present, and private rooms may be locked.", "Housing and Buildings Committee", 0, "", "", "2026-04-30"],
+ ["351", 0, "Nurse", ["Louis", "Stevens", "Joseph", "Banks", "Gutiérrez"], "Tightens BSA's fast-track findings for affordable housing: at least 50% of units must be income-restricted, capped at 120% AMI.", "Land Use Committee", 0, "", "", "2026-01-29"],
+ ["350", 0, "Nurse", ["Louis", "Stevens", "Joseph", "Gutiérrez"], "Clarifies that affordability options the Council selects for mandatory inclusionary housing sites aren't subject to Affordable Housing Appeals Board review.", "Land Use Committee", 0, "", "", "2026-01-29"],
+ ["63", 0, "Maloney", ["Williams", "Wilson", "Louis"], "Clarifies that artist preferences in state or city housing programs don't violate the Human Rights Law's ban on occupation discrimination.", "Civil and Human Rights Committee", 0, "", "", "2026-01-29"],
+ ["178", 1, "Epstein", ["Louis", "Marte", "Hanif", "Cabán", "Maloney", "Feliz", "Brooks-Powers", "Hankerson", "Krishnan", "Wilson", "Aldebol", "Morano"], "Creates an Office of Conversion Assistance to help owners convert non-residential space to housing, with a portal, interagency coordination and annual reporting.", "Heard and laid over, Housing and Buildings (Sep 9)", 1, "", "", "2026-01-29"],
+ ["72", 1, "Brewer", ["P. Sanchez", "Louis", "Wilson"], "Requires DOB to independently verify whether a building is in a special purpose district before issuing a demolition permit, and to notify the community board.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["423", 1, "P. Sanchez", ["Louis", "Brewer"], "Adds environmental mitigation strategies from final EISs to the public database tracking commitments made in ULURP approvals.", "Land Use Committee", 0, "", "List may be incomplete", "2026-01-29"],
+ ["105", 1, "Brooks-Powers", ["Louis"], "Requires DCP to study actual transportation impacts after neighborhood rezonings, compare them to the EIS, and recommend CEQR Technical Manual changes.", "Land Use Committee", 0, "", "", "2026-01-29"],
+ ["526", 2, "De La Rosa", ["Louis", "Brewer", "Hudson", "Hanif"], "Requires new residential buildings to provide space to store and sort organic waste, and increases required refuse and recycling space.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["194", 2, "Feliz", ["Louis"], "Raises minimum floor area and dimensions for bedrooms and other living rooms in newly built multiple dwellings.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["771", 2, "PA Williams", ["P. Sanchez"], "Requires general contractors to be licensed by DOB, with qualifications such as a Site Safety Training Supervisor card, before pulling permits.", "Housing and Buildings Committee", 0, "", "", "2026-03-10"],
+ ["657", 3, "P. Sanchez", ["Hudson", "De La Rosa", "Brewer", "Nurse", "Restler", "Williams", "Abreu", "Krishnan", "Ung", "Hanif", "Cabán", "Avilés", "Farías", "Marte", "Stevens", "Feliz", "Schulman", "Narcisse", "Won", "Banks", "Riley", "Ossé", "Gutiérrez", "Louis", "Joseph", "Aldebol", "J. Sanchez", "Brooks-Powers", "Hankerson", "Maloney", "Encarnación", "Santosuosso", "Salaam", "Wilson", "Dinowitz", "PA Williams"], "Overhauls the Third Party Transfer program: broader definition of distressed properties, more notice to owners and residents, and new ways for owners to avoid transfer.", "Heard and laid over, Housing and Buildings (Mar 9)", 1, "", "List may be incomplete", "2026-02-12"],
+ ["774", 3, "PA Williams", ["P. Sanchez", "Feliz", "Cabán", "Restler", "J. Sanchez", "Hudson", "Krishnan", "Gutiérrez", "Marte", "Avilés", "Ossé", "Hanif", "Nurse", "Salaam", "Louis"], "Requires co-op boards to give prospective buyers a written statement of all reasons for rejecting a sale within five days.", "Housing and Buildings Committee", 0, "", "List may be incomplete", "2026-03-10"],
+ ["862", 3, "Brooks-Powers", ["Stevens", "Farías", "Williams", "Epstein", "J. Sanchez", "Nurse", "Hankerson", "Thomas-Henry", "Louis", "Marte", "Aldebol", "Brewer", "Narcisse", "Carr", "Morano"], "Requires HPD's HomeFirst program to help at least 600 first-time homebuyers a year, with annual reporting.", "Housing and Buildings Committee", 0, "Oct 28", "", "2026-04-30"],
+ ["418", 3, "P. Sanchez", ["Louis", "Feliz", "Hudson", "Gutiérrez", "Farías", "Narcisse", "Nurse", "Krishnan", "Cabán", "Schulman", "Restler", "Hanif", "Brooks-Powers", "Ung"], "Requires HPD to offer in-person help for Housing Connect lottery applicants.", "Heard and laid over, Housing and Buildings (Feb 9)", 1, "", "", "2026-01-29"],
+ ["427", 3, "P. Sanchez", ["Louis", "Feliz", "Hudson", "Gutiérrez", "Farías", "Narcisse", "Nurse", "Krishnan", "Cabán", "Schulman", "Restler", "Hanif", "Brooks-Powers", "Ung"], "Requires previously occupied affordable units that come up for rent to be posted on Housing Connect.", "Heard and laid over, Housing and Buildings (Feb 9)", 1, "", "", "2026-01-29"],
+ ["361", 3, "Nurse", ["Ossé", "Hudson", "Narcisse", "P. Sanchez", "Louis", "Stevens", "Joseph", "Brewer", "Hanif", "Gutiérrez", "Salaam", "Morano"], "Requires the Department of Finance to record tax liens in ACRIS once more than $5,000 has been past due for three or more years.", "Finance Committee", 0, "", "List may be incomplete", "2026-01-29"],
+ ["689", 3, "Banks", ["Stevens", "Brooks-Powers", "Wong", "Louis", "Salaam", "Schulman", "Epstein", "Thomas-Henry", "Zhuang", "Morano", "Vernikov"], "Requires notice of intended tax lien sales by certified mail plus email, phone or in person, and notice to the Council Member when receipt isn't confirmed.", "Finance Committee", 0, "", "", "2026-02-24"],
+ ["306", 3, "Marte", ["Louis", "Cabán", "Hudson", "Ossé", "Riley"], "Adds questions on existing and planned affordable units and their income levels to DOB's PW1 work permit application.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["711", 3, "PA Williams", ["Louis", "Restler", "Hanif", "Hudson", "Brewer"], "Requires DOF, HPD and DCWP outreach on deed theft and foreclosure-rescue fraud, with legal referral resources.", "Finance Committee", 0, "", "", "2026-02-24"],
+ ["276", 3, "Lee", ["Louis", "Maloney", "Schulman", "Riley"], "Raises disability set-asides in city-financed housing to at least 10% of units for mobility needs and 5% for vision or hearing needs.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["426", 3, "P. Sanchez", ["PA Williams", "Louis", "Hudson", "Farías"], "Requires co-op corporations to give financial statements to buyers whose offers are accepted, within 14 days of a request.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["599", 3, "Hudson", ["Ossé", "Louis", "Hanif", "Schulman"], "Sets minimum rules for affordable housing lotteries: written acceptance or rejection, time to respond and appeal, and a complaint process.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["28", 3, "Abreu", ["Feliz", "Louis", "Encarnación"], "Creates an HPD office dedicated to advising and supporting HDFC co-ops on management issues.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["167", 3, "Dinowitz", ["Louis", "Stevens"], "Lets housing assistance organizations view and manage Housing Connect accounts and apply to units on behalf of users who designate them.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["168", 3, "Dinowitz", ["Louis", "Stevens"], "Lets public assistance recipients have their HRA documents appear automatically in their Housing Connect lottery accounts.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["592", 3, "Hudson", ["Louis", "Hanif"], "Caps studios at 50% of units citywide in city-funded senior rental projects.", "Land Use Committee", 0, "", "", "2026-02-12"],
+ ["1096", 3, "Williams", ["Narcisse", "Morano"], "Directs HPD's Homeowner Advocate to run outreach on available help for homeowners in community districts with high displacement.", "Housing and Buildings Committee", 0, "Oct 28", "", "2026-09-24"],
+ ["88", 3, "Brewer", ["Louis"], "Requires more transparency around sales of HDFC co-op units.", "Housing and Buildings Committee", 0, "", "List may be incomplete", "2026-01-29"],
+ ["379", 3, "PA Williams", ["Louis"], "Expands disclosures distressed-property consultants must give homeowners and creates a foreclosure prevention guide.", "Consumer and Worker Protection Committee", 0, "", "", "2026-01-29"],
+ ["475", 3, "Ung", ["Louis"], "Requires HPD to send 421-a notices by certified mail with a multilingual pamphlet offering interpretation.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["851", 3, "Williams", ["Hudson"], "Makes publicly financed housing developers responsible for paying for repairs needed within 10 years of construction.", "Housing and Buildings Committee", 0, "", "", "2026-04-16"],
+ ["760", 3, "PA Williams", [], "Imposes a two-year moratorium on HPD's Third Party Transfer program, with quarterly reports on properties identified as eligible.", "Finance Committee", 0, "", "", "2026-03-10"],
+ ["978", 4, "Louis", ["Brewer", "Zhuang", "Epstein", "Farías", "Marte", "Hudson", "Riley", "Thomas-Henry", "Hanif", "Restler", "Wilson", "Maloney", "Hankerson", "Abreu", "Feliz", "Schulman", "Krishnan", "Cabán", "Banks", "Won", "Dinowitz", "Gutiérrez", "De La Rosa", "Avilés", "Ossé", "Nurse", "Wong", "Narcisse", "Encarnación", "Vernikov", "PA Williams"], "Raises the SCRIE and DRIE income limit to $75,000, retroactive to July 1, 2026, and aligns the income definition with state law.", "Heard and laid over, Finance (Sep 18)", 1, "Oct 22", "List may be incomplete", "2026-07-16"],
+ ["307", 4, "Marte", ["Schulman", "Salaam", "Dinowitz", "Brewer", "De La Rosa", "Krishnan", "Ossé", "Restler", "Cabán", "Hanif", "Louis", "Stevens", "Ung", "Narcisse", "Feliz", "Epstein", "Wilson", "Aldebol", "Morano", "PA Williams"], "Creates a universal application and online recertification for SCRIE and DRIE, run jointly by DOF and HPD.", "Heard and laid over, Finance (Sep 18)", 1, "", "", "2026-01-29"],
+ ["101", 4, "Brewer", ["Farías", "Williams", "Brooks-Powers", "Cabán", "Louis", "Nurse", "Joseph", "Schulman", "Stevens", "J. Sanchez", "Avilés", "Marte", "Aldebol", "Gutiérrez", "Epstein", "Hudson"], "Requires DSS to respond to CityFHEPS applications within 15 days.", "Heard and laid over, General Welfare (Sep 22)", 1, "", "", "2026-01-29"],
+ ["861", 4, "Brooks-Powers", ["Stevens", "Farías", "Williams", "Epstein", "J. Sanchez", "Nurse", "Hankerson", "Thomas-Henry", "Hudson", "Louis", "Hanif", "Marte", "Aldebol", "Narcisse", "Morano"], "Requires HPD outreach to Section 8 voucher holders about the Housing Choice Voucher Homeownership program.", "Housing and Buildings Committee", 0, "Oct 28", "", "2026-04-30"],
+ ["100", 4, "Brewer", ["Farías", "Cabán", "Louis", "Nurse", "Joseph", "Schulman", "Stevens", "Ung", "Avilés", "Marte", "Krishnan", "Gutiérrez", "Epstein", "Hudson"], "Requires DSS to report average lease-up time after households receive housing vouchers.", "Heard and laid over, General Welfare (Sep 22)", 1, "", "", "2026-01-29"],
+ ["98", 4, "Brewer", ["Farías", "Cabán", "Louis", "Nurse", "Joseph", "Schulman", "Wong", "Stevens", "Avilés", "Marte", "Krishnan", "Gutiérrez", "Hudson"], "Requires DSS to find a unit habitable before approving CityFHEPS for it.", "Heard and laid over, General Welfare (Sep 22)", 1, "", "", "2026-01-29"],
+ ["842", 4, "Stevens", ["Restler", "P. Sanchez", "Marte", "Avilés", "Nurse", "Banks", "Epstein", "Gutiérrez", "Salaam", "Hudson"], "Requires the Commission on Human Rights to report quarterly on source-of-income discrimination complaints.", "Civil and Human Rights Committee", 0, "", "", "2026-04-16"],
+ ["641", 4, "Restler", ["Brewer", "Farías", "Williams", "Brooks-Powers", "Louis", "Hudson", "Schulman"], "Requires CityFHEPS rent payments at least seven days before the first of the month.", "Heard and laid over, General Welfare (Sep 22)", 1, "", "", "2026-02-12"],
+ ["231", 4, "Hudson", ["Louis", "Brewer", "Brooks-Powers", "Hanif", "Stevens", "Ung"], "Creates an online SCRIE/DRIE application and renewal system, requires phone or email outreach on notices, and defines income drops that trigger rent redetermination.", "Finance Committee", 0, "", "", "2026-01-29"],
+ ["345", 4, "Nurse", ["Louis", "Stevens", "Joseph", "Hudson", "Gutiérrez", "Salaam"], "Lets city agencies deny tax exemptions to housing companies found to have committed source-of-income discrimination.", "Finance Committee", 0, "", "", "2026-01-29"],
+ ["37", 4, "Ariola", ["Louis", "Encarnación", "Salaam", "Morano", "Paladino"], "Creates a rental assistance program for homeless veterans up to 200% of poverty, covering rent up to HUD fair market rent with no tenant contribution.", "Finance Committee", 0, "", "", "2026-01-29"],
+ ["483", 4, "Ung", ["Louis", "Hudson", "Hanif", "Joseph", "Farías"], "Extends CityFHEPS to domestic violence survivors at risk of losing their homes, up to 400% of poverty.", "Women and Gender Equity Committee", 0, "", "", "2026-01-29"],
+ ["429", 4, "Schulman", ["Louis", "Brewer", "Hudson"], "Caps at 30 days the case management time street homeless applicants must complete to qualify for rental assistance.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["1033", 4, "Felder", ["Louis", "Schulman"], "Gives the Finance Commissioner discretion over certain information requirements in SCRIE and DRIE notices.", "Heard and laid over, Finance (Sep 18)", 1, "", "", "2026-09-10"],
+ ["1082", 4, "Hankerson", ["Williams", "Narcisse"], "Requires HPD to report annually on participation and closings in the Housing Choice Voucher Homeownership program.", "Housing and Buildings Committee", 0, "Oct 28", "", "2026-09-24"],
+ ["829", 4, "Morano", ["Louis"], "Expands DSS's Landlord Management Unit to all five boroughs with response deadlines and annual complaint reporting.", "General Welfare Committee", 0, "", "", "2026-04-16"],
+ ["1072", 4, "Banks", ["Louis"], "Extends rent freeze outreach rules to DRIE, adds the disability office as a partner agency, and requires DOF training and reporting.", "Heard and laid over, Finance (Sep 18)", 1, "", "", "2026-09-24"],
+ ["1090", 4, "Morano", ["Hudson"], "Creates an online portal for landlords in DSS rental subsidy programs to upload documents, enroll in electronic payments and file complaints.", "General Welfare Committee", 0, "", "", "2026-09-24"],
+ ["1023", 5, "Banks", ["P. Sanchez", "Restler", "Epstein", "Zhuang", "Marte", "Santosuosso", "Hudson", "Felder", "Hanif", "Joseph", "Wong", "Nurse", "Feliz", "Dinowitz", "Brewer", "Stevens", "Cabán", "Avilés", "Gennaro", "Encarnación", "Riley", "Narcisse", "Thomas-Henry", "Abreu", "Louis", "Carr", "Morano", "Ariola", "Vernikov"], "Allows electronic registration of buildings with HPD, including e-signatures and online fee payment.", "Heard and laid over, Housing and Buildings (Sep 9)", 1, "", "", "2026-09-10"],
+ ["428", 5, "P. Sanchez", ["Cabán", "Hanif", "Louis", "Abreu", "Hudson", "Salaam", "Avilés", "Brewer", "Brooks-Powers", "Nurse", "Krishnan", "J. Sanchez", "Epstein", "Aldebol", "Farías", "Santosuosso", "Joseph", "Wilson", "PA Williams"], "Bans owners of multiple dwellings from using facial or other biometric recognition to identify tenants or guests.", "Heard and laid over, Technology (Mar 2)", 1, "", "", "2026-01-29"],
+ ["610", 5, "Joseph", ["Louis", "Restler", "Hanif", "Hudson", "Brewer", "Gutiérrez", "Banks", "Brooks-Powers", "Nurse", "Salaam", "Farías", "Epstein", "Thomas-Henry", "Hankerson", "Santosuosso", "Morano"], "Amends the notice-of-intent rules for altering or demolishing certain rent-regulated buildings, changing when HPD may charge inspection fees.", "Housing and Buildings Committee", 0, "", "List may be incomplete", "2026-02-12"],
+ ["59", 5, "Avilés", ["Abreu", "Louis", "Restler", "Won", "Brewer", "Ossé", "Nurse", "De La Rosa", "P. Sanchez", "Schulman", "Hudson", "Krishnan", "Gutiérrez", "Narcisse"], "Requires marshals and the sheriff to notify HRA of pending evictions so HRA can connect tenants to right-to-counsel lawyers.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["224", 5, "Hanks", ["Ariola", "Zhuang", "Carr", "Louis", "Banks", "Brooks-Powers", "Schulman", "Hankerson", "Salaam", "J. Sanchez", "Aldebol", "Morano", "Vernikov"], "Creates an interagency task force on squatting, covering removal, rehousing and owners' duty to maintain abandoned properties.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["271", 5, "Krishnan", ["Avilés", "Restler", "Brewer", "Gutiérrez", "Louis", "Cabán", "Brooks-Powers", "Abreu", "Marte", "Hudson", "Hanif", "Ung", "Schulman"], "Requires HPD to send tenant relocation specialists to buildings when a vacate order is issued.", "Heard and laid over, Housing and Buildings (Feb 9)", 1, "", "", "2026-01-29"],
+ ["363", 5, "Nurse", ["Abreu", "P. Sanchez", "Ossé", "De La Rosa", "Krishnan", "Gutiérrez", "Stevens", "Louis", "Joseph", "Hudson", "Hanif", "Salaam"], "Ensures lawful occupants can get injunctive relief, including restored possession, in harassment cases.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["364", 5, "Nurse", ["Abreu", "P. Sanchez", "Ossé", "De La Rosa", "Krishnan", "Gutiérrez", "Stevens", "Louis", "Joseph", "Hudson", "Hanif", "Salaam"], "Raises penalties for illegal evictions and bars violators from city subsidies and tax breaks for five years.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["365", 5, "Nurse", ["P. Sanchez", "Salaam", "Feliz", "Louis", "Stevens", "Joseph", "Marte", "Hanif", "Ung", "Gutiérrez", "Ossé", "Epstein"], "Requires HPD to reschedule failed inspections and give tenants written notice and same-day arrival updates.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["252", 5, "Hudson", ["Feliz", "P. Sanchez", "Brewer", "Louis", "Hanif", "Won", "Krishnan", "Schulman", "Aldebol", "Restler", "Zhuang"], "Raises heat-season minimum indoor temperatures to 70°F by day and 66°F at night.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["266", 5, "Krishnan", ["P. Sanchez", "Williams", "Nurse", "Louis", "Cabán", "Banks", "Hanif", "Stevens", "Gutiérrez", "Epstein"], "Bars landlords from using credit history to screen tenants whose rent is paid by Section 8, CityFHEPS or similar programs.", "Civil and Human Rights Committee", 0, "", "", "2026-01-29"],
+ ["649", 5, "Restler", ["Krishnan", "De La Rosa", "Louis", "Brewer", "Cabán", "Nurse", "Schulman", "Epstein", "Aldebol"], "Requires multiple dwellings to post a sign naming the owners, including beneficial owners of LLCs and partnerships.", "Heard and laid over, Housing and Buildings (Sep 9)", 1, "", "", "2026-02-12"],
+ ["267", 5, "Krishnan", ["Nurse", "Louis", "Cabán", "Banks", "Hanif", "Stevens", "Epstein"], "Requires landlords to give applicants the criteria used to reject them based on tenant screening reports.", "Civil and Human Rights Committee", 0, "", "", "2026-01-29"],
+ ["583", 5, "Gutiérrez", ["P. Sanchez", "Won", "Louis", "Brewer", "Hudson", "Brooks-Powers", "Hanif"], "Requires a study of a low-cost, city-sponsored renter's insurance program.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["1030", 5, "Epstein", ["Hanif", "Cabán", "De La Rosa", "Krishnan", "Restler", "Brewer", "Louis"], "Requires HPD to declare a lead hazard a public nuisance when the Health Department orders it corrected.", "Housing and Buildings Committee", 0, "", "", "2026-09-10"],
+ ["527", 5, "De La Rosa", ["Louis", "Brewer", "Hudson", "Brooks-Powers", "Hanif", "Won"], "Has HPD presume paint is lead-based unless the owner proves otherwise, and creates a public database of XRF lead test reports.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["249", 5, "Hudson", ["Marte", "Louis", "Brewer", "Hanif", "P. Sanchez"], "Requires landlords to give an itemized statement with receipts when deducting from a security deposit.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["348", 5, "Nurse", ["Louis", "Stevens", "Joseph", "Gutiérrez", "Salaam"], "Creates an NYPD procedure for changing locks so illegally locked-out tenants can return home.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["600", 5, "Hudson", ["De La Rosa", "Gutiérrez", "Louis", "Hanif", "Schulman"], "Requires HPD to study rent-stabilized housing periodically and develop incentives for owners to keep units stabilized longer.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["1086", 5, "Louis", ["Gutiérrez", "Joseph", "Maloney", "Farías", "Epstein"], "Expands the Alternative Enforcement Program by 400 distressed buildings a year, including 100 repeat offenders.", "Housing and Buildings Committee", 0, "", "", "2026-09-24"],
+ ["254", 5, "Hudson", ["Nurse", "Krishnan", "Louis", "Hanif"], "Requires owners to give tenants in the building and next door two weeks' notice of non-minor construction, filed with the Office of the Tenant Advocate.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["305", 5, "Marte", ["Schulman", "Louis", "Epstein", "Aldebol"], "Bans no-pet lease clauses in unsubsidized apartments in multiple dwellings.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["648", 5, "Restler", ["Hanks", "Louis", "Brewer", "Hudson"], "Expands building registration so owners must report vacant apartments and commercial spaces, how long they've been empty and whether units are habitable.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["818", 5, "Feliz", ["Louis", "Wong", "Restler", "Morano"], "Creates a one-year interagency task force on derelict housing and neglected property.", "Housing and Buildings Committee", 0, "", "", "2026-04-16"],
+ ["1011", 5, "Mealy", ["Louis", "Schulman", "Maloney", "Thomas-Henry"], "Requires owners to disclose information to the city before evicting older adult tenants, and the city to tell those tenants about legal help.", "Heard and laid over, Aging (Sep 18)", 1, "", "", "2026-08-13"],
+ ["204", 5, "Gutiérrez", ["Avilés", "Louis", "Hanif"], "Requires owners to give tenants an HPD notice linking to information on their elected officials at lease signing and renewal.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["242", 5, "Hudson", ["Abreu", "Louis", "Schulman"], "Bans discrimination based on family or relationship structure in employment, housing and public accommodations.", "Civil and Human Rights Committee", 0, "", "", "2026-01-29"],
+ ["250", 5, "Hudson", ["Nurse", "Louis", "Hanif"], "Requires relocation aid and 90 days' notice for low-income tenants displaced by demolition, gut renovation, change of use or loss of rent or income restrictions.", "Housing and Buildings Committee", 0, "", "List may be incomplete", "2026-01-29"],
+ ["253", 5, "Hudson", ["Marte", "P. Sanchez", "Louis"], "Requires HPD to visit units to verify complaints, with repeat attempts and tenant contact before marking a complaint unresolved.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["270", 5, "Krishnan", ["Lee", "Louis", "Brewer"], "Requires the online property owner registry to include a copy of each building's latest registration statement.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["435", 5, "Schulman", ["Marte", "Louis", "Morano"], "Voids pet restrictions in leases at city-financed housing developments and removes the three-month safe harbor.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["1085", 5, "Louis", ["Gutiérrez", "Marte", "Restler"], "Raises fees on Alternative Enforcement Program buildings not discharged within four months.", "Housing and Buildings Committee", 0, "", "", "2026-09-24"],
+ ["233", 5, "Hudson", ["Louis", "Hanif"], "Requires HPD to mail tenants an annual list of open Housing Maintenance Code violations in their building.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["626", 5, "Restler", ["Louis", "P. Sanchez"], "Lets tenants pay security deposits in six equal monthly installments.", "Housing and Buildings Committee", 0, "", "", "2026-02-12"],
+ ["762", 5, "PA Williams", ["Restler"], "Requires owners to tell occupants when they're notified of an unsafe exterior wall condition.", "Housing and Buildings Committee", 0, "", "", "2026-03-10"],
+ ["763", 5, "PA Williams", ["Hudson"], "Requires HPD to respond to immediately hazardous complaints within 5 hours and hazardous complaints within 48 hours.", "Housing and Buildings Committee", 0, "", "", "2026-03-10"],
+ ["764", 5, "PA Williams", ["Hudson"], "Requires 311 to accept photos and video with housing complaints and pass them to inspectors.", "Technology Committee", 0, "", "", "2026-03-10"],
+ ["1034", 5, "Felder", ["Morano"], "Requires HPD to send Council Members an annual list of buildings in their districts that failed to register.", "Housing and Buildings Committee", 0, "", "", "2026-09-10"],
+ ["99", 6, "Brewer", ["Farías", "Cabán", "Louis", "Nurse", "Joseph", "Schulman", "Wong", "Stevens", "Avilés", "Marte", "Krishnan", "Gutiérrez", "Paladino", "PA Williams"], "Requires DHS to report annually on how many families with children are placed in shelter in or near their last zip code.", "General Welfare Committee", 0, "Oct 26", "", "2026-01-29"],
+ ["232", 6, "Hudson", ["Louis", "Farías", "Williams", "Cabán", "Maloney", "Brewer", "Nurse", "Schulman", "Banks", "Restler", "Ossé", "P. Sanchez", "Santosuosso", "Marte"], "Cuts the housing history families must prove for shelter eligibility from two years to one, with digital records and 30 days of temporary shelter during review.", "Heard and laid over, General Welfare (Mar 9)", 1, "", "", "2026-01-29"],
+ ["587", 6, "Hanif", ["Avilés", "P. Sanchez", "Cabán", "Restler", "Gutiérrez", "De La Rosa", "Krishnan", "PA Williams", "Louis", "Brewer", "Hudson", "Narcisse"], "Sets minimum standards for emergency congregate housing, including HERRCs, matching DSS shelter standards.", "General Welfare Committee", 0, "", "", "2026-02-12"],
+ ["589", 6, "Hanif", ["Restler", "Gutiérrez", "De La Rosa", "Hudson", "P. Sanchez", "Nurse", "Won", "Avilés", "Krishnan", "Marte", "Louis", "Brewer"], "Bars any city agency from imposing length-of-stay limits in any type of shelter.", "General Welfare Committee", 0, "", "List may be incomplete", "2026-02-12"],
+ ["816", 6, "Farías", ["Brewer", "Joseph", "Hudson", "Brooks-Powers", "Epstein", "P. Sanchez", "Louis", "Thomas-Henry", "Cabán", "Ossé", "Santosuosso", "Marte"], "Bars DHS from requiring families applying for shelter to document housing history beyond a written attestation.", "General Welfare Committee", 0, "", "", "2026-04-16"],
+ ["588", 6, "Hanif", ["Avilés", "P. Sanchez", "Cabán", "Gutiérrez", "De La Rosa", "Krishnan", "PA Williams", "Louis", "Hudson"], "Requires notice of the right to DSS shelter within 24 hours for people in emergency congregate housing, and reporting of failures.", "General Welfare Committee", 0, "", "", "2026-02-12"],
+ ["897", 6, "Feliz", ["Stevens", "Restler", "Hudson", "Riley", "Louis", "Narcisse", "Thomas-Henry", "Morano"], "Requires a DSS cold-weather response for unsheltered people when temperatures are forecast at 20°F or below.", "General Welfare Committee", 0, "Oct 21", "", "2026-05-14"],
+ ["147", 6, "Carr", ["Paladino", "Vernikov", "Zhuang", "Ariola", "Morano", "Wong", "Louis"], "Requires DHS to notify community boards and elected officials when emergency shelter contracts are renewed.", "Governmental Operations Committee", 0, "", "", "2026-01-29"],
+ ["772", 6, "PA Williams", ["Restler", "Mealy", "Williams", "Hudson", "Farías"], "Creates a task force, including a shelter resident, to recommend safety improvements in DHS shelters.", "General Welfare Committee", 0, "", "", "2026-03-10"],
+ ["773", 6, "PA Williams", ["Restler", "Williams", "Hudson", "Farías", "Abreu"], "Creates a 15-member Commission on Shelter Siting to plan future shelter locations near transit and services.", "General Welfare Committee", 0, "", "", "2026-03-10"],
+ ["138", 6, "Cabán", ["Ossé", "Louis", "Hudson", "Hanif"], "Bars police officers from conducting outreach to unsheltered homeless people.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["443", 6, "Stevens", ["Brooks-Powers", "Cabán", "Epstein", "Morano"], "Requires eligibility specialists at every shelter, one per 25 adult residents, to help with public benefits.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["470", 6, "Ung", ["Louis", "Brewer", "Hudson", "Hanif"], "Requires DHS to provide process navigators to every family with children at intake.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["471", 6, "Ung", ["Louis", "Brewer", "Hudson", "Hanif"], "Requires DHS to open family intake centers so every borough has one near transit.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["680", 6, "Won", ["Brewer", "Hanif", "Louis"], "Creates a voluntary survey on where people go after leaving shelter and migrant re-ticketing sites, with annual reporting.", "General Welfare Committee", 0, "", "", "2026-02-12"],
+ ["540", 6, "Feliz", ["Louis", "Brewer"], "Bars placing homeless families with children in private buildings with more than five class C violations.", "General Welfare Committee", 0, "", "", "2026-02-12"],
+ ["681", 6, "Won", ["Avilés", "Louis"], "Bars agencies from publicly disclosing addresses of shelters serving only new arrivals, absent a judicial warrant or legal requirement.", "Immigration Committee", 0, "", "", "2026-02-12"],
+ ["939", 6, "Hudson", ["Louis", "Cabán"], "Bars DSS from disclosing shelter addresses to the public unless required by law or law enforcement.", "General Welfare Committee", 0, "", "", "2026-06-11"],
+ ["103", 6, "Brooks-Powers", ["Louis"], "Requires DSS to expand Homebase homelessness prevention to more locations and report on results.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["905", 7, "Nurse", ["Epstein", "Cabán", "Santosuosso", "Brooks-Powers", "Avilés", "Stevens", "J. Sanchez", "P. Sanchez", "Gutiérrez", "Hanif", "Brewer", "Hudson", "De La Rosa", "Aldebol", "Restler", "Schulman", "Farías", "Ossé", "Thomas-Henry", "Won", "Joseph", "Krishnan", "Abreu", "Encarnación", "Lee", "Wilson", "Hankerson", "Feliz", "Ung", "Marte", "Riley", "PA Williams"], "Community Opportunity to Purchase Act (COPA): gives certified nonprofits first chance to make offers on certain residential buildings when they're sold.", "Heard and laid over, Housing and Buildings (Sep 9)", 1, "", "List may be incomplete", "2026-05-14"],
+ ["488", 7, "Vernikov", ["Louis", "Brewer", "Lee", "Salaam", "Wong", "Narcisse", "Dinowitz", "Morano", "Paladino", "Carr"], "Requires HPD to report annually on veteran preference in city Mitchell-Lama developments.", "Heard and laid over, Veterans (Apr 23)", 1, "", "", "2026-01-29"],
+ ["926", 7, "Banks", ["Marte", "Schulman", "Restler", "Aldebol", "Maloney", "Brooks-Powers", "Epstein", "Morano"], "Requires monthly reports on unauthorized occupancy of NYCHA apartments and efforts to reclaim them.", "Public Housing Committee", 0, "", "", "2026-06-11"],
+ ["346", 7, "Nurse", ["Louis", "Stevens", "Joseph", "Schulman", "Gutiérrez", "Salaam", "Ossé"], "Requires DSS to study the 2010e supportive housing application and remove questions not required by law.", "General Welfare Committee", 0, "", "", "2026-01-29"],
+ ["347", 7, "Nurse", ["Louis", "Stevens", "Joseph", "Marte", "Gutiérrez", "Salaam"], "Requires a feasibility study of a city agency dedicated to developing social housing.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["362", 7, "Nurse", ["Restler", "Louis", "Stevens", "Joseph", "J. Sanchez", "Gutiérrez"], "Lets city agencies sign regulatory agreements with community land trusts covering non-housing community uses.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"],
+ ["349", 7, "Nurse", ["Louis", "Stevens", "Joseph", "Gutiérrez"], "Broadens the city's definition of community land trusts to cover community uses beyond housing, such as manufacturing, commercial space and gardens.", "Housing and Buildings Committee", 0, "", "", "2026-01-29"]
+];
+const CATS = [
+  "Zoning & land use",
+  "Permitting & environmental review",
+  "Building code & construction",
+  "Housing finance & production incentives",
+  "Vouchers & rental assistance",
+  "Tenant protections & rent regulation",
+  "Shelters & homelessness",
+  "Social, public & supportive housing"
+];
+const BOROS = [["Manhattan",1,10],["Bronx",11,18],["Queens",19,32],["Brooklyn",33,48],["Staten Island",49,51]];
+const byKey = Object.fromEntries(MEMBERS.map(m=>[m.key,m]));
+const label = k => k==="PA Williams" ? "Public Advocate Williams" : k;
+
+// [number, cat, sponsor, [cosponsors], description, status, heard flag, upcoming, note, introduced]
+const bills = B.map(r => {
+  const [num,cat,sp,cos,desc,status,heard,up,note,intro] = r;
+  const pad = num.padStart(4,"0");
+  return {num,cat,sp,cos,desc,status,heard,up,note,intro,
+    id:`Int. ${num}`, url:`https://intro.nyc/${pad}-2026`,
+    hay:(`int ${num} ${pad}-2026 ${desc} ${status} ${CATS[cat]} `+[sp,...cos].map(k=>(byKey[k]?byKey[k].name:label(k))+" "+k).join(" ")).toLowerCase()};
+});
+
+const state = {mem:"", cat:"", q:"", heard:false};
+try { const s = JSON.parse(localStorage.getItem("council-hb-state")||"null"); if (s) Object.assign(state, s); } catch(e){}
+function save(){ try{ localStorage.setItem("council-hb-state", JSON.stringify(state)); }catch(e){} }
+
+const roster = document.getElementById("roster");
+if (window.matchMedia("(max-width: 760px)").matches) document.getElementById("members").removeAttribute("open");
+BOROS.forEach(([boro,lo,hi]) => {
+  const wrap = document.createElement("div"); wrap.className="boro";
+  wrap.innerHTML = `<h3>${boro}</h3>`;
+  const grid = document.createElement("div"); grid.className="roster";
+  MEMBERS.filter(m=>m.d>=lo && m.d<=hi).forEach(m => {
+    const sp = bills.filter(b=>b.sp===m.key).length;
+    const co = bills.filter(b=>b.cos.includes(m.key)).length;
+    const btn = document.createElement("button");
+    btn.className="sen"; btn.type="button"; btn.dataset.key=m.key;
+    btn.innerHTML = `<span class="nm">${m.name}</span><span class="ds">District ${m.d} · ${m.area}</span><span class="ct"><b>${sp}</b> sponsored · <b>${co}</b> cosponsored</span>`;
+    btn.addEventListener("click", () => { state.mem = state.mem===m.key ? "" : m.key; render(); });
+    grid.appendChild(btn);
+  });
+  wrap.appendChild(grid); roster.appendChild(wrap);
+});
+
+const catSel = document.getElementById("cat");
+catSel.innerHTML = `<option value="">All subjects</option>` + CATS.map((c,i)=>`<option value="${i}">${c}</option>`).join("");
+const memSel = document.getElementById("mem");
+memSel.innerHTML = `<option value="">All Council Members</option>` + MEMBERS.slice().sort((a,b)=>a.name.split(" ").pop().localeCompare(b.name.split(" ").pop())).map(m=>`<option value="${m.key}">${m.name} (D${m.d})</option>`).join("");
+const q = document.getElementById("q"), heard = document.getElementById("onlyheard");
+q.addEventListener("input", e=>{state.q=e.target.value; render();});
+catSel.addEventListener("change", e=>{state.cat=e.target.value; render();});
+memSel.addEventListener("change", e=>{state.mem=e.target.value; render();});
+heard.addEventListener("change", e=>{state.heard=e.target.checked; render();});
+document.getElementById("clear").addEventListener("click", ()=>{Object.assign(state,{mem:"",cat:"",q:"",heard:false}); render();});
+
+const name = k => k===state.mem ? `<mark>${label(k)}</mark>` : label(k);
+
+function render(){
+  q.value = state.q; catSel.value = state.cat; memSel.value = state.mem; heard.checked = state.heard;
+  roster.querySelectorAll(".sen").forEach(b=>b.setAttribute("aria-pressed", b.dataset.key===state.mem ? "true":"false"));
+  const qq = state.q.trim().toLowerCase();
+  const shown = bills.filter(b =>
+    (state.cat==="" || b.cat===+state.cat) &&
+    (!state.mem || b.sp===state.mem || b.cos.includes(state.mem)) &&
+    (!state.heard || b.heard) &&
+    (!qq || b.hay.includes(qq)));
+  document.getElementById("count").textContent = `${shown.length} of ${bills.length} bills`;
+  const list = document.getElementById("list");
+  if (!shown.length) { list.innerHTML = `<div class="empty">No bills match these filters. Reset to see all ${bills.length}.</div>`; save(); return; }
+  list.innerHTML = CATS.map((c,i) => {
+    const rows = shown.filter(b=>b.cat===i);
+    if (!rows.length) return "";
+    return `<section class="cat"><h2>${c}</h2>` + rows.map(b => {
+      const pills = (b.up?`<span class="pill soon">On agenda ${b.up}</span>`:"") + (b.heard?`<span class="pill heard">Hearing held</span>`:"");
+      const hit = state.mem && (b.sp===state.mem || b.cos.includes(state.mem));
+      return `<article class="bill ${hit?"hit":""}">
+        <div class="id"><a href="${b.url}" target="_blank" rel="noopener">${b.id}</a></div>
+        <div style="min-width:0">
+          <p class="desc">${b.desc}</p>
+          <div class="meta">${pills}<span>${b.status}</span></div>
+        </div>
+        <div class="people">
+          <div><span class="lbl">Prime sponsor</span><br><span class="sp">${name(b.sp)}</span></div>
+          <div><span class="lbl">Cosponsors (${b.cos.length})</span><br>${b.cos.length ? b.cos.map(name).join(", ") : `<span class="none">None listed</span>`}</div>
+          ${b.note?`<div class="note">${b.note}</div>`:""}
+        </div>
+      </article>`;}).join("") + `</section>`;
+  }).join("");
+  save();
+}
+render();
+</script>
+</body>
+</html>
