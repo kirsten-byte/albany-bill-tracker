@@ -279,6 +279,9 @@ document.getElementById("clear").addEventListener("click", ()=>{Object.assign(st
 
 const name = n => keys.has(n) ? `<mark>${n}</mark>` : n;
 function url(id){ return `https://www.nysenate.gov/legislation/bills/2025/${id}`; }
+// Bills with a coalition tab in the team's Coalition Partners Database (private: opens for teammates with access)
+const COALITION_DB = "https://claude.ai/artifact/MMzvwKzUeZeNjKZ6JGVutu";
+const COALITION = {S3397:"fbah", S4058:"appeals", S9423:"revive", S10507:"parking"};
 
 function render(){
   q.value = state.q; catSel.value = state.cat; only.checked = state.only;
@@ -301,7 +304,7 @@ function render(){
         <div class="id"><a href="${url(b.id)}" target="_blank" rel="noopener">${b.id}</a></div>
         <div style="min-width:0">
           <p class="desc">${b.desc}</p>
-          <div class="meta">${pill}<span>${b.status}</span>${b.same?`<span>Same as ${b.same}</span>`:""}</div>
+          <div class="meta">${pill}<span>${b.status}</span>${b.same?`<span>Same as ${b.same}</span>`:""}${COALITION[b.id]?`<span><a href="${COALITION_DB}#${COALITION[b.id]}" target="_blank" rel="noopener" style="color:var(--accent)">Coalition →</a></span>`:""}</div>
         </div>
         <div class="people">
           <div><span class="lbl">Sponsor</span><br><span class="sp">${name(b.sp)}</span></div>
